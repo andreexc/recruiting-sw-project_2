@@ -1,0 +1,29 @@
+#pragma once
+#include <fstream>
+#include <string>
+#include "can_message.h"
+#include "FSM_codes.h"
+
+enum State {
+    IDLE, RUN
+}; // Possible states of the FSM
+
+class FSM {
+    private:
+        State state;
+        std::fstream log_file;
+        std::string filename;
+
+    public:
+        FSM();
+        void handleMessage(const std::string& raw_message);
+
+    private:
+        void handleOnIDLE(const CAN_Message& msg, const std::string& raw_msg);
+        void handleOnRUN(const CAN_Message& msg, const std::string& raw_msg);
+        void do_log(const CAN_Message& msg, const std::string& raw_msg);
+        bool isStartMessage(const CAN_Message& msg);
+        bool isStopMessage(const CAN_Message& msg);
+        void startRunSession();
+        void stopRunSession();
+};
