@@ -2,8 +2,10 @@
 #include <fstream>
 #include <string>
 #include <ctime>
+#include <unordered_map>
 #include "parser.h"
 #include "can_message.h"
+#include "stat_data.h"
 #include "FSM_codes.h"
 #include "FSM.h"
 
@@ -48,6 +50,7 @@ void FSM::handleOnRUN(const CAN_Message& msg, const std::string& raw_msg) {
     if (this->isStopMessage(msg)) {
         this->stopRunSession();
     }
+    this->updateStats(msg);
 }
 
 void FSM::do_log(const CAN_Message& msg, const std::string& raw_msg) {
@@ -86,6 +89,7 @@ void FSM::startRunSession(/*const CAN_Message& msg*/) {
                     << std::endl;
         return;
     }
+    this->session_statistics.clear();  // clearing the previous session data
     this->state = State::RUN;
     /*
         * if i chose to set the run state before the file creation i could get logging
@@ -97,7 +101,62 @@ void FSM::startRunSession(/*const CAN_Message& msg*/) {
 
 void FSM::stopRunSession() {
     this->log_file.close();
+    this->saveStatsOnCSV();
     this->state = State::IDLE;
     std::cout<<"Going from RUN to IDLE"
                 <<std::endl;
+}
+
+void FSM::updateStats(const CAN_Message& msg) {
+
+    // here i get the statistics of messages with the same ID
+    // (coded in an unordered key-value map)
+    StatData& /* (need address reference for editing values) */
+              msg_class_data = this->session_statistics[msg.ID];
+    msg_class_data.count++; // increase the number of messages with that ID
+
+    // if the value in the key msg.ID is not defined the operator std::vector<X,Y>[msg.ID] creates
+    // a new key-value with the msg.ID key and default values ( {0,0,0} )
+
+    // if not the first message
+    if (msg_class_data.lastTimestamp != 0) {
+        double elapsed_time = msg.timestamp - msg_class_data.lastTimestamp;
+        msg_class_data.mean_time += (elapsed_time - msg_class_data.mean_time) / msg_class_data.count;
+    } // no need to save the data in the map because i'm referring to the same memory slot
+    /*
+     *                        (new_value - old_mean)
+     * new_mean = old_mean + ------------------------
+     *                                  n
+     *
+     * proof: https://math.stackexchange.com/questions/106700/incremental-averaging
+     * (with this formula i just have to save the old mean saving
+     *  memory and time to calculate the new mean everytime)
+     */
+    msg_class_data.lastTimestamp = msg.timestamp; // overriding last message timestamp
+}
+
+void FSM::saveStatsOnCSV() {
+    std::string sessionCSV_filename = "stats_" + std::to_string(time(nullptr)) + ".csv";
+    std::fstream csv_file; csv_file.open(sessionCSV_filename, std::ios::app);
+
+    if (csv_file.fail()) {
+        std::cerr<<"Error. Cannot open the stats file."
+                 << std::endl;
+        return; // yes, it will not save the stats
+    }
+
+    // writing in the CSV
+    csv_file<<"ID,number_of_messages,mean_time"
+            << std::endl; // heading
+    for (const auto& ID_Stats : this->session_statistics) { /* for-each key-value (ID : Stats)*/
+        uint16_t id = ID_Stats.first; // taking the key (ID)
+        const StatData& stats_by_ID = ID_Stats.second; // taking the stats given the ID
+        
+        // std::hex changes the stream in hex base (need to be changed again to dec) 
+        csv_file<<std::hex << id << ","
+                <<std::dec << stats_by_ID.count << ","
+                <<stats_by_ID.mean_time
+                <<std::endl;
+    }
+    csv_file.close();
 }

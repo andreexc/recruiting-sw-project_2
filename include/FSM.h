@@ -1,7 +1,9 @@
 #pragma once
 #include <fstream>
 #include <string>
+#include <unordered_map>
 #include "can_message.h"
+#include "stat_data.h"
 #include "FSM_codes.h"
 
 enum State {
@@ -11,8 +13,8 @@ enum State {
 class FSM {
     private:
         State state;
+        std::unordered_map<uint16_t, StatData> session_statistics;
         std::fstream log_file;
-        std::string filename;
 
     public:
         FSM();
@@ -26,4 +28,6 @@ class FSM {
         bool isStopMessage(const CAN_Message& msg);
         void startRunSession();
         void stopRunSession();
+        void updateStats(const CAN_Message& msg);
+        void saveStatsOnCSV();
 };
