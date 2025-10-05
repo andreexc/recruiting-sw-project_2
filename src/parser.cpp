@@ -18,14 +18,24 @@ void throw_error(char* err_str) {
 */
 CAN_Message parse_message(const std::string& raw_message) {
 
-    size_t pos = raw_message.find('#'); // need to split the ID / Payload
+    //std::cout<<"MESSAGGIO DEL PARSER: "<<raw_message<<std::endl;
+    // the message needs to be cleared by new lines that caused the invalid payload format
+    std::string clean_msg = raw_message;
+    clean_msg.erase(clean_msg.find_last_not_of("\r\n") + 1);       // searches for the last char which is not
+                                                                   // the newline character and deletes it
+    /* find_last_not_of returns a size_t representing the last char before the newline one
+     * need to add 1 to "point" so we "point" to the chars that needs to be cut of the string
+     * finally .erase cuts the chars from the size_t to the end of the string
+    */
+
+    size_t pos = clean_msg.find('#'); // need to split the ID / Payload
     if (pos == std::string::npos) throw_error("Invalid format!");  // std::string::npos is a value returned in case
                                                                    // functions such as find don't find the wanted value
 
-    uint16_t id = std::stoul(raw_message.substr(0, pos), nullptr, 16);
+    uint16_t id = std::stoul(clean_msg.substr(0, pos), nullptr, 16);
     // std::stoul (string to unsigned long): https://en.cppreference.com/w/cpp/string/basic_string/stoul
 
-    std::string raw_payload = raw_message.substr(pos+1); // cut from # excluded to the end
+    std::string raw_payload = clean_msg.substr(pos+1); // cut from # excluded to the end
     if (raw_payload.length() % 2 != 0) throw_error("Invalid Payload format!"); // odd digits
     std::vector<uint8_t> Payload;
 

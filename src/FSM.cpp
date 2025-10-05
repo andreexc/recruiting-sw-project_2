@@ -136,7 +136,7 @@ void FSM::updateStats(const CAN_Message& msg) {
 }
 
 void FSM::saveStatsOnCSV() {
-    std::string sessionCSV_filename = "stats_" + std::to_string(time(nullptr)) + ".csv";
+    std::string sessionCSV_filename = "../static_data/stats_" + std::to_string(time(nullptr)) + ".csv";
     std::fstream csv_file; csv_file.open(sessionCSV_filename, std::ios::app);
 
     if (csv_file.fail()) {
